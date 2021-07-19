@@ -1,0 +1,9 @@
+---
+# tasks file for java
+#
+- name: installing java
+  apt:
+          update_cache: true
+          name: openjdk-8-jdk
+          state: present
+

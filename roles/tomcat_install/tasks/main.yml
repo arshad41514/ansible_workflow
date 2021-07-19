@@ -1,0 +1,72 @@
+---
+- name: creating a system user
+  user:
+    name: tomcat  
+    home: /opt/tomcat
+    shell: /bin/false
+
+- name: downloading tomcat
+  get_url:
+    url: https://www-eu.apache.org/dist/tomcat/tomcat-9/v{{VERSION}}/bin/apache-tomcat-{{VERSION}}.tar.gz
+    dest: /tmp
+
+- name: extracting tar file 
+  unarchive:
+    src: /tmp/apache-tomcat-{{VERSION}}.tar.gz
+    dest: /opt/tomcat/
+    remote_src: yes
+
+- name: creating a symbolic link for latest tomcat version
+  file:
+    src: /opt/tomcat/apache-tomcat-{{VERSION}}
+    dest: /opt/tomcat/latest
+    state: link 
+
+- name: change the directory ownership to tomcat user to upgrade to the latest tomcat version
+  file:
+    path: /opt/tomcat
+    owner: tomcat
+    group: tomcat
+    recurse: yes
+
+- name: giving executable permissions in bin directory for tomcat
+  shell: sudo sh -c 'chmod +x /opt/tomcat/latest/bin/*.sh'
+
+- name: creating systemD file to run tomcat as a service
+  template:
+    src:  tomcat.service.j2
+    dest: /etc/systemd/system/tomcat.service
+
+- name: reload daemon
+  systemd:
+    name: tomcat
+    daemon_reload: true
+    enabled: yes
+  ignore_errors: yes
+
+- name: configuring firewall
+  shell: sudo ufw allow 8080/tcp
+
+- name: create a user with “admin-gui” and “manager-gui” roles
+  lineinfile:
+    path: /opt/tomcat/latest/conf/tomcat-users.xml
+    insertbefore: '^</tomcat-users>'
+    line: "{{item}}"
+  with_items:
+    - <role rolename="admin-gui"/>
+    - <role rolename="manager-gui"/>
+    - <user username="admin" password="admin" roles="admin-gui,manager-gui"/>
+
+- name: removing restrictions to access the web interface from a remote IP
+  lineinfile:
+    path: /opt/tomcat/latest/webapps/manager/META-INF/context.xml
+    state: absent
+    regexp: "{{item}}"
+  with_items:
+    - <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+    - allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" />
+
+- name: restart tomcat
+  systemd:
+    name: tomcat
+    state: restarted

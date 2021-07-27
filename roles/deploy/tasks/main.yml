@@ -1,12 +1,12 @@
 ---
 - name: copying artifact to local machine
   copy:
-          src: /home/devops/workspace/end_to_end/applogin/target/{{war_file}}
+          src: /home/devops/workspace/e2e_java/java_e2e/java_e2e/target/{{jar_file}}
           dest: /tmp
 
 - name: copying artifact to tomcat
   copy:
-          src: /tmp/{{war_file}}
+          src: /tmp/{{jar_file}}
           dest: /opt/tomcat/latest/webapps/
           remote_src: yes
   notify: restart tomcat service
